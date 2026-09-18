@@ -1,0 +1,9 @@
+numpy
+scipy
+pillow
+opencv-python
+open3d
+fastapi
+uvicorn
+pydantic
+pywebview

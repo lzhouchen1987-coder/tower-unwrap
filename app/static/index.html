@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>风电混塔表面展开工具</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <h1>风电混塔表面展开工具</h1>
+  <p>大疆智图三维模型 → 混塔表面带纹理平面展开图（门洞居中 / 高度自定义 / 可分张导出）</p>
+</header>
+
+<main>
+  <!-- 1. 模型加载 -->
+  <section class="card">
+    <h2><span class="step">1</span> 加载模型</h2>
+    <div class="row">
+      <input id="modelPath" type="text" placeholder="粘贴 terra_obj 目录或其上级路径，例如 D:\terra model\...\8\models\pc\0\terra_obj">
+      <button id="btnLoad">加载</button>
+    </div>
+    <div id="loadInfo" class="info"></div>
+  </section>
+
+  <!-- 2. 预览与门洞点选 -->
+  <section class="card" id="cardPreview" hidden>
+    <h2><span class="step">2</span> 生成预览并点选门洞</h2>
+    <div class="row">
+      <button id="btnPreview">生成低清预览</button>
+      <span class="hint">预览生成后，在图上<span class="accent">点击门洞中心</span>，正式展开图将把门洞放在画面中间</span>
+    </div>
+    <div id="previewWrap" class="preview-wrap" hidden>
+      <div class="preview-scroll" id="previewScroll">
+        <div class="preview-inner" id="previewInner">
+          <img id="previewImg" draggable="false">
+          <div id="doorLine" class="door-line" hidden></div>
+        </div>
+      </div>
+      <div id="doorInfo" class="info"></div>
+    </div>
+  </section>
+
+  <!-- 3. 渲染参数 -->
+  <section class="card" id="cardRender" hidden>
+    <h2><span class="step">3</span> 设置参数并导出</h2>
+    <div class="form-grid">
+      <label>起始高度 z（米）<input id="zBottom" type="number" step="0.5"></label>
+      <label>结束高度 z（米）<input id="zTop" type="number" step="0.5"></label>
+      <label>分辨率
+        <select id="pxm">
+          <option value="0.002" selected>2 毫米/像素（推荐，与成品一致）</option>
+          <option value="0.001">1 毫米/像素（更精细，耗时×4）</option>
+          <option value="0.005">5 毫米/像素（快速出图）</option>
+        </select>
+      </label>
+      <label>抗锯齿
+        <select id="ss">
+          <option value="2" selected>2× 超采样（推荐）</option>
+          <option value="1">关闭（耗时÷4，边缘略糙）</option>
+        </select>
+      </label>
+      <label>分张方式
+        <select id="split">
+          <option value="0" selected>展开成一张</option>
+          <option value="50">每张 50 米</option>
+          <option value="30">每张 30 米</option>
+          <option value="20">每张 20 米</option>
+        </select>
+      </label>
+      <label>渲染引擎
+        <select id="engine">
+          <option value="builtin" selected>内置快速渲染（推荐）</option>
+          <option value="blender">Blender 烘焙（色块更少，需安装 Blender 4.x）</option>
+        </select>
+      </label>
+      <label>文件名前缀<input id="outName" type="text" value="tower"></label>
+      <label>匀色强度 <span id="strengthVal" class="val">85%</span>
+        <input id="strength" type="range" min="0" max="100" value="85">
+      </label>
+      <label>质感增强（清晰度）<span id="clarityVal" class="val">70%</span>
+        <input id="clarity" type="range" min="0" max="100" value="70">
+      </label>
+    </div>
+    <div class="hint">匀色强度：越高照片拼缝/色差去得越干净；质感增强：越高混凝土纹理越清晰（治"白茫茫"）。一般保持默认即可。</div>
+    <div id="estimate" class="info"></div>
+    <div class="row">
+      <button id="btnRender" class="primary">开始渲染</button>
+    </div>
+  </section>
+
+  <!-- 4. 结果 -->
+  <section class="card" id="cardResult" hidden>
+    <h2><span class="step">4</span> 结果</h2>
+    <div id="resultList"></div>
+  </section>
+</main>
+
+<!-- 进度条 -->
+<div id="progressBar" class="progress" hidden>
+  <div class="progress-inner">
+    <div id="progressStage">处理中...</div>
+    <div class="bar"><div id="progressFill"></div></div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

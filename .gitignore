@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 打包产物
+dist/
+build_pyinst/
+build/
+
+# 运行时数据（纹理缓存、渲染输出）
+tex_cache/
+data/
+output/
+test_mini/
+data_wuhe_s02/
+data_yiyang_08/
+
+# 系统/编辑器
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

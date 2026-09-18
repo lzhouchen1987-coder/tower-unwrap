@@ -1,0 +1,9 @@
+{
+  "name": "tower-unwrap",
+  "version": "0.1.0",
+  "private": true,
+  "description": "风电混塔表面展开工具",
+  "scripts": {
+    "dev": "../build-venv/Scripts/python.exe app/main.py"
+  }
+}
