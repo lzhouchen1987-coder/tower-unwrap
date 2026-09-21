@@ -9,9 +9,10 @@ a = Analysis(
     ['app/desktop.py'],
     pathex=['.'],
     binaries=o3d_bins + wv_bins,
-    datas=[('app/static', 'app/static'), ('app/icon.ico', 'app')] + o3d_datas + wv_datas,
+    datas=[('app/static', 'app/static'), ('app/icon.ico', 'app'),
+           ('blender', 'blender')] + o3d_datas + wv_datas,
     hiddenimports=o3d_hidden + wv_hidden + [
-        'core.unwrap_core', 'core.runtime_paths',
+        'core.unwrap_core', 'core.runtime_paths', 'core.blender_bake',
         'scripts.post_flatten',
         'webview', 'clr', 'pythonnet', 'clr_loader',
         'uvicorn.logging', 'uvicorn.loops', 'uvicorn.loops.auto', 'uvicorn.loops.asyncio',
