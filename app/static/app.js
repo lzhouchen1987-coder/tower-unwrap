@@ -204,16 +204,31 @@ $("btnRender").onclick = async () => {
   watchJob(jid, (res) => {
     $("btnRender").disabled = false;
     $("cardResult").hidden = false;
-    $("resultList").innerHTML = res.files.map(f =>
-      `<div class="result-item">
-         <span>🖼️</span>
-         <span class="fname">${f.name}</span>
-         <button class="btn-dl" data-name="${f.name}">⬇ 下载</button>
-         <span class="dim">${f.W} × ${f.H} 像素</span>
-       </div>`).join("") +
-      `<div class="info">文件保存在软件目录 output\\app\\ 下；点【下载】可另存到任意位置。门洞方位角 θ₀=${res.theta0.toFixed(3)} rad</div>`;
-    document.querySelectorAll(".btn-dl").forEach(b =>
-      b.onclick = () => downloadFile(b.dataset.name));
+    // 用 DOM API 构建（textContent 自动转义），不用 innerHTML 拼文件名
+    const list = $("resultList");
+    list.textContent = "";
+    res.files.forEach(f => {
+      const item = document.createElement("div");
+      item.className = "result-item";
+      const icon = document.createElement("span");
+      icon.textContent = "🖼️";
+      const fname = document.createElement("span");
+      fname.className = "fname";
+      fname.textContent = f.name;
+      const btn = document.createElement("button");
+      btn.className = "btn-dl";
+      btn.textContent = "⬇ 下载";
+      btn.onclick = () => downloadFile(f.name);
+      const dim = document.createElement("span");
+      dim.className = "dim";
+      dim.textContent = `${f.W} × ${f.H} 像素`;
+      item.append(icon, fname, btn, dim);
+      list.appendChild(item);
+    });
+    const info = document.createElement("div");
+    info.className = "info";
+    info.textContent = `文件保存在软件目录 output\\app\\ 下；点【下载】可另存到任意位置。门洞方位角 θ₀=${res.theta0.toFixed(3)} rad`;
+    list.appendChild(info);
     $("cardResult").scrollIntoView({ behavior: "smooth" });
   });
 };

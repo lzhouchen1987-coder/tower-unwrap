@@ -22,6 +22,12 @@ def main():
     import uvicorn
     host = _arg("--host", os.environ.get("HOST", "127.0.0.1"))
     port = int(_arg("--port", os.environ.get("PORT", "7100")))
+    # 安全：接口无认证，仅允许本机回环；确需局域网访问须显式设 TOWER_ALLOW_REMOTE=1
+    if host not in ("127.0.0.1", "localhost", "::1") \
+            and os.environ.get("TOWER_ALLOW_REMOTE") != "1":
+        print(f"[安全] 拒绝绑定非本机地址 {host}（接口无认证，仅允许本机使用）。"
+              f"确需远程访问请设置环境变量 TOWER_ALLOW_REMOTE=1")
+        host = "127.0.0.1"
     from app.server import app
     uvicorn.run(app, host=host, port=port, log_level="warning")
 
