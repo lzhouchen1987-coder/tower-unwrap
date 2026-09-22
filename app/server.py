@@ -203,8 +203,28 @@ class RenderReq(BaseModel):
     engine: str = "builtin"       # builtin=内置快速 / blender=Blender烘焙（更干净，较慢）
 
 
+def _log_error(where):
+    """把未捕获异常的堆栈写入 data/app_error.log，便于远程排查"""
+    try:
+        fp = os.path.join(data_dir(), "app_error.log")
+        with open(fp, "a", encoding="utf-8") as f:
+            f.write(f"\n===== {time.strftime('%Y-%m-%d %H:%M:%S')} {where} =====\n")
+            f.write(traceback.format_exc())
+    except Exception:
+        pass
+
+
 @app.post("/api/render")
 def api_render(req: RenderReq):
+    try:
+        return _api_render_impl(req)
+    except Exception as e:
+        _log_error("api_render")
+        traceback.print_exc()
+        return JSONResponse({"error": f"{type(e).__name__}: {e}"}, status_code=500)
+
+
+def _api_render_impl(req: RenderReq):
     if S["scene"] is None:
         return JSONResponse({"error": "尚未加载模型"}, status_code=400)
     profile = S["profile"]
@@ -226,6 +246,8 @@ def api_render(req: RenderReq):
         rr = max(float(rr[0]), 0.05)
         uu = (req.door_x + 0.5 - W / 2) * px_m
         theta0 = uu / rr
+        if not np.isfinite(theta0):        # 剖面异常时兜底，避免 NaN 导致响应序列化 500
+            theta0 = 0.0
 
     # 分张
     bands = []

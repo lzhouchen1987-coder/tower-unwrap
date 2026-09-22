@@ -58,7 +58,11 @@ button.primary { padding: 10px 32px; font-size: 14px; }
   max-height: 560px; overflow: auto; border: 1px solid var(--border);
   border-radius: 8px; background: #111;
 }
-.preview-inner { position: relative; display: inline-block; }
+.preview-inner {
+  position: relative; display: inline-block;
+  /* 透明区域显示棋盘格，避免在深色界面里被误看成“黑色块” */
+  background: repeating-conic-gradient(#aab2bd 0% 25%, #e8ebef 0% 50%) 0 0 / 22px 22px;
+}
 .preview-inner img { display: block; max-width: none; cursor: crosshair; }
 .door-line {
   position: absolute; top: 0; bottom: 0; width: 0;

@@ -6,19 +6,30 @@ let zMin = 0, zMax = 0;
 
 // ---------- 进度轮询 ----------
 let pollTimer = null;
+function resetButtons() {
+  ["btnLoad", "btnPreview", "btnRender"].forEach(id => {
+    const b = $(id); if (b) b.disabled = false;
+  });
+}
 function watchJob(jid, onDone) {
   $("progressBar").hidden = false;
   clearInterval(pollTimer);
   pollTimer = setInterval(async () => {
     try {
       const r = await fetch(`/api/job/${jid}`).then(r => r.json());
-      if (r.error && !r.kind) { clearInterval(pollTimer); $("progressBar").hidden = true; alert(r.error); return; }
+      if (r.error && !r.kind) {
+        clearInterval(pollTimer);
+        $("progressBar").hidden = true;
+        resetButtons();
+        alert("任务状态查询失败：" + r.error + "\n（如刚重启过软件，请重新操作）");
+        return;
+      }
       $("progressStage").textContent = r.stage;
       $("progressFill").style.width = `${Math.round(r.pct * 100)}%`;
       if (r.done) {
         clearInterval(pollTimer);
         $("progressBar").hidden = true;
-        if (r.error) alert(`失败：${r.error}`);
+        if (r.error) { alert(`失败：${r.error}`); resetButtons(); }
         else onDone(r.result);
       }
     } catch (e) { /* 网络抖动忽略 */ }
@@ -31,6 +42,20 @@ async function post(url, body) {
     body: JSON.stringify(body),
   });
   return r.json();
+}
+
+// 提交任务：拿不到 job_id 就把服务器的真实错误原样显示，并恢复按钮
+async function submitJob(url, body, btn) {
+  const r = await post(url, body).catch(e => ({ error: "网络错误: " + e }));
+  if (!r || !r.job_id) {
+    if (btn) btn.disabled = false;
+    const msg = (r && (r.error || r.detail))
+      ? (r.error || JSON.stringify(r.detail))
+      : "服务器无响应或返回异常";
+    alert("提交失败：" + msg);
+    return null;
+  }
+  return r.job_id;
 }
 
 // ---------- 下载（pywebview 原生窗口里 <a download> 无效，走原生保存对话框） ----------
@@ -72,9 +97,9 @@ $("btnLoad").onclick = async () => {
   const path = $("modelPath").value.trim();
   if (!path) return alert("请先输入模型路径");
   $("btnLoad").disabled = true;
-  const r = await post("/api/load", { path });
-  if (r.error) { $("btnLoad").disabled = false; return alert(r.error); }
-  watchJob(r.job_id, (res) => {
+  const jid = await submitJob("/api/load", { path }, $("btnLoad"));
+  if (!jid) return;
+  watchJob(jid, (res) => {
     $("btnLoad").disabled = false;
     zMin = res.z_min; zMax = res.z_max;
     const zs = res.z_suggest || [res.z_min, res.z_max];
@@ -93,9 +118,9 @@ $("btnLoad").onclick = async () => {
 // ---------- 2. 预览 + 门洞点选 ----------
 $("btnPreview").onclick = async () => {
   $("btnPreview").disabled = true;
-  const r = await post("/api/preview", { px_m: 0.02 });
-  if (r.error) { $("btnPreview").disabled = false; return alert(r.error); }
-  watchJob(r.job_id, (res) => {
+  const jid = await submitJob("/api/preview", { px_m: 0.02 }, $("btnPreview"));
+  if (!jid) return;
+  watchJob(jid, (res) => {
     $("btnPreview").disabled = false;
     previewMeta = res;
     const img = $("previewImg");
@@ -174,9 +199,9 @@ $("btnRender").onclick = async () => {
     return alert("请检查高度范围");
   if (doorX === null && !confirm("还没有点选门洞，展开图将不居中门洞。继续？")) return;
   $("btnRender").disabled = true;
-  const r = await post("/api/render", body);
-  if (r.error) { $("btnRender").disabled = false; return alert(r.error); }
-  watchJob(r.job_id, (res) => {
+  const jid = await submitJob("/api/render", body, $("btnRender"));
+  if (!jid) return;
+  watchJob(jid, (res) => {
     $("btnRender").disabled = false;
     $("cardResult").hidden = false;
     $("resultList").innerHTML = res.files.map(f =>
