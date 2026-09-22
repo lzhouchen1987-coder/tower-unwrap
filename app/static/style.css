@@ -85,5 +85,19 @@ button.primary { padding: 10px 32px; font-size: 14px; }
 .result-item a { color: var(--blue); text-decoration: none; font-weight: 600; }
 .result-item a:hover { text-decoration: underline; }
 .result-item .dim { color: var(--muted); }
+.result-item .fname { color: var(--blue); font-weight: 600; word-break: break-all; }
+.btn-dl {
+  background: var(--blue); color: #fff; border: none; border-radius: 6px;
+  padding: 5px 14px; font-size: 12.5px; cursor: pointer; white-space: nowrap;
+}
+.btn-dl:hover { filter: brightness(1.15); }
+#toast {
+  position: fixed; left: 50%; bottom: 36px; transform: translateX(-50%);
+  background: rgba(17,24,39,.92); color: #e5e7eb; border: 1px solid var(--border);
+  padding: 10px 18px; border-radius: 8px; font-size: 13px; z-index: 9999;
+  opacity: 0; pointer-events: none; transition: opacity .25s; max-width: 80vw;
+  word-break: break-all;
+}
+#toast.show { opacity: 1; }
 .val { font-weight: 600; color: var(--accent, #3b82f6); margin-left: 6px; }
 label input[type="range"] { width: 100%; margin-top: 6px; }

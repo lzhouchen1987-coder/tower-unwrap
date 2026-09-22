@@ -301,10 +301,12 @@ def api_render(req: RenderReq):
 
 
 @app.get("/api/file/{name}")
-def api_file(name: str):
+def api_file(name: str, dl: int = 0):
     fp = os.path.join(OUT_ROOT, "app", os.path.basename(name))
     if not os.path.exists(fp):
         return JSONResponse({"error": "文件不存在"}, status_code=404)
+    if dl:                       # 浏览器模式下强制作为附件下载
+        return FileResponse(fp, filename=os.path.basename(name))
     return FileResponse(fp)
 
 

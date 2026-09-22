@@ -47,9 +47,36 @@ def main():
         # 首选：pywebview 原生窗口（使用系统 Edge WebView2，体积小）
         import webview
         from core.runtime_paths import app_root
+
+        class _JsApi:
+            """暴露给前端 JS 的原生能力（pywebview 里 <a download> 不会触发系统下载）"""
+            def download_file(self, name):
+                import shutil
+                from core.runtime_paths import data_dir
+                name = os.path.basename(name or "")
+                src = os.path.join(data_dir(), "output", "app", name)
+                if not name or not os.path.exists(src):
+                    return {"error": "文件不存在: " + (name or "?")}
+                win = webview.windows[0]
+                try:
+                    desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+                    res = win.create_file_dialog(
+                        webview.SAVE_DIALOG,
+                        directory=desktop if os.path.isdir(desktop) else "",
+                        save_filename=name)
+                except Exception:
+                    res = win.create_file_dialog(webview.SAVE_DIALOG,
+                                                 save_filename=name)
+                if not res:
+                    return {"canceled": True}
+                dst = res if isinstance(res, str) else res[0]
+                shutil.copyfile(src, dst)
+                return {"saved": dst}
+
         icon = os.path.join(app_root(), "app", "icon.ico")
         webview.create_window("风电混塔表面展开工具", url,
-                              width=1360, height=900, min_size=(1024, 700))
+                              width=1360, height=900, min_size=(1024, 700),
+                              js_api=_JsApi())
         print("[启动] 原生桌面窗口已打开（pywebview/WebView2）", flush=True)
         webview.start(icon=icon if os.path.exists(icon) else None)
         server.should_exit = True

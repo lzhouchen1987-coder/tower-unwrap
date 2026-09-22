@@ -33,6 +33,40 @@ async function post(url, body) {
   return r.json();
 }
 
+// ---------- 下载（pywebview 原生窗口里 <a download> 无效，走原生保存对话框） ----------
+function toast(msg) {
+  let el = $("toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "toast";
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove("show"), 4000);
+}
+
+async function downloadFile(name) {
+  if (window.pywebview && window.pywebview.api && window.pywebview.api.download_file) {
+    try {
+      const r = await window.pywebview.api.download_file(name);
+      if (r && r.saved) toast("✅ 已保存到: " + r.saved);
+      else if (r && r.error) alert(r.error);
+    } catch (e) {
+      alert("下载失败: " + e);
+    }
+    return;
+  }
+  // 浏览器模式：附件下载
+  const a = document.createElement("a");
+  a.href = "/api/file/" + encodeURIComponent(name) + "?dl=1";
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 // ---------- 1. 加载模型 ----------
 $("btnLoad").onclick = async () => {
   const path = $("modelPath").value.trim();
@@ -90,6 +124,13 @@ $("previewImg").addEventListener("click", (e) => {
   $("doorInfo").innerHTML = `📍 门洞已标记（像素 x=${doorX}）。正式展开图将以门洞为横向中心。如需调整，再次点击即可。`;
 });
 
+// 预览图右键 → 下载预览图
+$("previewImg").addEventListener("contextmenu", (e) => {
+  e.preventDefault();
+  toast("💾 正在保存预览图…");
+  downloadFile("preview.png");
+});
+
 // ---------- 3. 参数与渲染 ----------
 function updateEstimate() {
   const z0 = parseFloat($("zBottom").value), z1 = parseFloat($("zTop").value);
@@ -141,10 +182,13 @@ $("btnRender").onclick = async () => {
     $("resultList").innerHTML = res.files.map(f =>
       `<div class="result-item">
          <span>🖼️</span>
-         <a href="${f.url}" download>${f.name}</a>
+         <span class="fname">${f.name}</span>
+         <button class="btn-dl" data-name="${f.name}">⬇ 下载</button>
          <span class="dim">${f.W} × ${f.H} 像素</span>
        </div>`).join("") +
-      `<div class="info">文件保存在软件目录 output\\app\\ 下，点文件名可直接下载。门洞方位角 θ₀=${res.theta0.toFixed(3)} rad</div>`;
+      `<div class="info">文件保存在软件目录 output\\app\\ 下；点【下载】可另存到任意位置。门洞方位角 θ₀=${res.theta0.toFixed(3)} rad</div>`;
+    document.querySelectorAll(".btn-dl").forEach(b =>
+      b.onclick = () => downloadFile(b.dataset.name));
     $("cardResult").scrollIntoView({ behavior: "smooth" });
   });
 };
