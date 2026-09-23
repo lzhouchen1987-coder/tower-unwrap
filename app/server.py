@@ -97,8 +97,25 @@ def _run_async(jid, fn):
     def wrap():
         try:
             fn(jid)
+        except MemoryError:
+            try:
+                fp = os.path.join(data_dir(), "app_error.log")
+                with open(fp, "a", encoding="utf-8") as f:
+                    f.write(f"\n===== {time.strftime('%Y-%m-%d %H:%M:%S')} job {jid} MemoryError =====\n")
+                    f.write(traceback.format_exc())
+            except Exception:
+                pass
+            _set_job(jid, done=True,
+                     error="内存不足：请关闭浏览器/微信等大型软件后重试；仍失败则改用 3mm/像素 或 每张 10 米")
         except Exception as e:
             traceback.print_exc()
+            try:
+                fp = os.path.join(data_dir(), "app_error.log")
+                with open(fp, "a", encoding="utf-8") as f:
+                    f.write(f"\n===== {time.strftime('%Y-%m-%d %H:%M:%S')} job {jid} =====\n")
+                    f.write(traceback.format_exc())
+            except Exception:
+                pass
             _set_job(jid, done=True, error=f"{type(e).__name__}: {e}")
     threading.Thread(target=wrap, daemon=True).start()
 

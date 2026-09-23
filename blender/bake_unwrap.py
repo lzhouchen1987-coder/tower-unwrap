@@ -65,6 +65,28 @@ def main():
     print(f"[bake] 高模 {len(hi)} 个对象, "
           f"{sum(len(o.data.polygons) for o in hi)} 面", flush=True)
 
+    # 贴图显存/内存上限：大疆模型常见 70+ 张 8192² 贴图，Cycles 全量加载可冲 40GB+，
+    # 32GB 内存机器会被拖进交换区导致系统级崩溃。输出 2mm/px 时 4096 贴图仍富余。
+    tex_cap = int(job.get("tex_limit", 4096))
+    if tex_cap > 0:
+        n_ds = 0
+        seen = set()
+        for o in hi:
+            for m in o.data.materials:
+                if not (m and m.use_nodes):
+                    continue
+                for n in m.node_tree.nodes:
+                    if n.type == "TEX_IMAGE" and n.image and n.image.name not in seen:
+                        im = n.image
+                        seen.add(im.name)
+                        w, h = im.size
+                        if max(w, h) > tex_cap:
+                            f = tex_cap / float(max(w, h))
+                            im.scale(max(1, round(w * f)), max(1, round(h * f)))
+                            n_ds += 1
+        if n_ds:
+            print(f"[bake] 贴图超 {tex_cap}px 已降采样 {n_ds} 张（控制内存峰值）", flush=True)
+
     # ---- 2. 生成低模圆锥筒（柱面UV=展开图布局） ----
     n_seg = 2048                       # 环向分段（弦误差<1mm，远小于像素）
     z_step = 0.25                      # 环行距（米）

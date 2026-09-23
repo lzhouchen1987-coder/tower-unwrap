@@ -69,6 +69,7 @@ def bake_band(blocks, profile, z0, z1, px_m, theta0, out_png,
         "z0": float(z0), "z1": float(z1),
         "px_m": float(px_m), "theta0": float(theta0),
         "W": W, "H": H, "scale": scale, "out_png": out_png,
+        "tex_limit": 4096,
     }
     os.makedirs(os.path.dirname(out_png), exist_ok=True)
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False,
