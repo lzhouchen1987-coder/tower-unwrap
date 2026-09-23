@@ -11,7 +11,7 @@ function resetButtons() {
     const b = $(id); if (b) b.disabled = false;
   });
 }
-function watchJob(jid, onDone) {
+function watchJob(jid, onDone, onTick) {
   $("progressBar").hidden = false;
   clearInterval(pollTimer);
   pollTimer = setInterval(async () => {
@@ -26,6 +26,7 @@ function watchJob(jid, onDone) {
       }
       $("progressStage").textContent = r.stage;
       $("progressFill").style.width = `${Math.round(r.pct * 100)}%`;
+      if (onTick) onTick(r);
       if (r.done) {
         clearInterval(pollTimer);
         $("progressBar").hidden = true;
@@ -182,6 +183,39 @@ $("engine").addEventListener("change", async () => {
   if (!r.found) alert("未检测到本机安装 Blender 4.x。\n烘焙模式需要 Blender，可到 blender.org 下载安装，\n或改用内置快速渲染。");
 });
 
+// ---------- 结果列表（渲染中逐张出现，可立即下载） ----------
+function renderFileList(files, failures) {
+  $("cardResult").hidden = false;
+  const list = $("resultList");
+  list.textContent = "";
+  files.forEach(f => {
+    const item = document.createElement("div");
+    item.className = "result-item";
+    const icon = document.createElement("span");
+    icon.textContent = "🖼️";
+    const fname = document.createElement("span");
+    fname.className = "fname";
+    fname.textContent = f.name;
+    const btn = document.createElement("button");
+    btn.className = "btn-dl";
+    btn.textContent = "⬇ 下载";
+    btn.onclick = () => downloadFile(f.name);
+    const dim = document.createElement("span");
+    dim.className = "dim";
+    dim.textContent = `${f.W} × ${f.H} 像素`;
+    item.append(icon, fname, btn, dim);
+    list.appendChild(item);
+  });
+  if (failures && failures.length) {
+    const warn = document.createElement("div");
+    warn.className = "info";
+    warn.style.color = "#b45309";
+    warn.textContent = "⚠️ 以下分张失败（重跑一次即可补齐，已成功的张不受影响）：" +
+      failures.map(x => `${x.band}（${x.error}）`).join("；");
+    list.appendChild(warn);
+  }
+}
+
 $("btnRender").onclick = async () => {
   const body = {
     z_bottom: parseFloat($("zBottom").value),
@@ -199,36 +233,19 @@ $("btnRender").onclick = async () => {
     return alert("请检查高度范围");
   if (doorX === null && !confirm("还没有点选门洞，展开图将不居中门洞。继续？")) return;
   $("btnRender").disabled = true;
+  $("resultList").textContent = "";
   const jid = await submitJob("/api/render", body, $("btnRender"));
   if (!jid) return;
   watchJob(jid, (res) => {
     $("btnRender").disabled = false;
-    $("cardResult").hidden = false;
-    // 用 DOM API 构建（textContent 自动转义），不用 innerHTML 拼文件名
-    const list = $("resultList");
-    list.textContent = "";
-    res.files.forEach(f => {
-      const item = document.createElement("div");
-      item.className = "result-item";
-      const icon = document.createElement("span");
-      icon.textContent = "🖼️";
-      const fname = document.createElement("span");
-      fname.className = "fname";
-      fname.textContent = f.name;
-      const btn = document.createElement("button");
-      btn.className = "btn-dl";
-      btn.textContent = "⬇ 下载";
-      btn.onclick = () => downloadFile(f.name);
-      const dim = document.createElement("span");
-      dim.className = "dim";
-      dim.textContent = `${f.W} × ${f.H} 像素`;
-      item.append(icon, fname, btn, dim);
-      list.appendChild(item);
-    });
+    renderFileList(res.files, res.failures);
     const info = document.createElement("div");
     info.className = "info";
     info.textContent = `文件保存在软件目录 output\\app\\ 下；点【下载】可另存到任意位置。门洞方位角 θ₀=${res.theta0.toFixed(3)} rad`;
-    list.appendChild(info);
+    $("resultList").appendChild(info);
     $("cardResult").scrollIntoView({ behavior: "smooth" });
+  }, (r) => {
+    // 轮询中：每出一张就刷新列表，渲染期间即可下载
+    if (r.partial && r.partial.length) renderFileList(r.partial);
   });
 };

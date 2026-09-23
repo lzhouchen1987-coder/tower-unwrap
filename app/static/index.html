@@ -13,7 +13,7 @@
   <div class="tb-brand">
     <span class="tb-icon">🗼</span>
     <span class="tb-title">风电混塔表面展开工具</span>
-    <span class="tb-ver">v2.1.2</span>
+    <span class="tb-ver">v2.2.0</span>
   </div>
   <span class="tb-sub">大疆智图三维模型 → 塔身带纹理平面展开图（门洞居中 / 高度自定义 / 分张导出）</span>
 </div>
@@ -66,6 +66,8 @@
       <label class="fld"><span class="fld-label">分辨率</span>
         <select id="pxm">
           <option value="0.002" selected>2 毫米/像素（推荐，与成品一致）</option>
+          <option value="0.003">3 毫米/像素（更快，内存更省）</option>
+          <option value="0.004">4 毫米/像素（更快，内存更省）</option>
           <option value="0.001">1 毫米/像素（更精细，耗时×4）</option>
           <option value="0.005">5 毫米/像素（快速出图）</option>
         </select>
@@ -78,10 +80,11 @@
       </label>
       <label class="fld"><span class="fld-label">分张方式</span>
         <select id="split">
-          <option value="0" selected>展开成一张</option>
+          <option value="0">展开成一张</option>
           <option value="50">每张 50 米</option>
           <option value="30">每张 30 米</option>
-          <option value="20">每张 20 米</option>
+          <option value="20" selected>每张 20 米（推荐，逐张可下载）</option>
+          <option value="10">每张 10 米（最稳，内存最省）</option>
         </select>
       </label>
       <label class="fld"><span class="fld-label">渲染引擎</span>
@@ -109,7 +112,7 @@
   <section class="card" id="cardResult" hidden>
     <div class="card-head">
       <h2><span class="step">4</span>导出结果</h2>
-      <span class="card-desc">点【下载】另存到任意位置</span>
+      <span class="card-desc">每完成一张即可点【下载】另存，不必等全部渲染完</span>
     </div>
     <div id="resultList"></div>
   </section>

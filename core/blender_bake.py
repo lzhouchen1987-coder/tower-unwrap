@@ -56,8 +56,10 @@ def bake_band(blocks, profile, z0, z1, px_m, theta0, out_png,
     if getattr(__import__("sys"), "frozen", False):
         script = os.path.join(__import__("sys")._MEIPASS, "blender", "bake_unwrap.py")
     W, H, s0, s1, r_max = _band_meta(profile, z0, z1, px_m)
-    # 超采样上限：烘焙目标为float显存/内存，控制在 ~2.5亿像素内
-    while scale > 1 and W * H * scale * scale > 2.5e8:
+    # 超采样上限：烘焙目标为float缓冲，Blender会为Combined/BakeDifferential等
+    # 各分配一份同尺寸缓冲（每份=像素数×16字节），叠加贴图后总提交量可能超过
+    # 系统虚拟内存上限导致 Calloc null 崩溃。控制在 1.2 亿像素内（每份≈1.9GB）。
+    while scale > 1 and W * H * scale * scale > 1.2e8:
         scale -= 1
 
     prof_rows = [[float(z), float(cx), float(cy), float(r)]

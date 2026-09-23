@@ -78,7 +78,7 @@ def safe_out_path(out_dir, name):
     return fp
 
 
-def _set_job(jid, pct=None, stage=None, done=None, result=None, error=None):
+def _set_job(jid, pct=None, stage=None, done=None, result=None, error=None, partial=None):
     with LOCK:
         j = JOBS[jid]
         if pct is not None:
@@ -91,6 +91,8 @@ def _set_job(jid, pct=None, stage=None, done=None, result=None, error=None):
             j["result"] = result
         if error is not None:
             j["error"] = error
+        if partial is not None:
+            j["partial"] = partial
 
 
 def _run_async(jid, fn):
@@ -194,7 +196,7 @@ def api_job(jid: str):
     j = JOBS.get(jid)
     if not j:
         return JSONResponse({"error": "任务不存在"}, status_code=404)
-    return {k: j[k] for k in ("kind", "pct", "stage", "done", "result", "error")}
+    return {k: j.get(k) for k in ("kind", "pct", "stage", "done", "result", "error", "partial")}
 
 
 @app.get("/api/blender_status")
@@ -357,50 +359,68 @@ def _api_render_impl(req: RenderReq):
         out_dir = os.path.join(OUT_ROOT, "app")
         os.makedirs(out_dir, exist_ok=True)
         files = []
+        failures = []
         n_b = len(bands)
         for bi, (bz0, bz1) in enumerate(bands):
             base = 0.02 + 0.9 * bi / n_b
             span = 0.9 / n_b
-            if use_blender:
-                tag0 = f"{name}_z{bz0:.0f}-{bz1:.0f}m_bake_raw.png"
-                raw_png = safe_out_path(out_dir, tag0)
-                arr, meta = bake_band(
-                    snap_blocks, snap_profile, bz0, bz1, px_m, theta0, raw_png,
-                    log_cb=lambda ln, b=base, sp=span, k=bi: _set_job(
-                        jid, b + sp * 0.6, f"第{k+1}/{n_b}张 烘焙 {ln[-60:]}"))
-                rgb, a = arr[..., :3], arr[..., 3]
-            else:
-                img, meta = render_unwrap(
-                    snap_blocks, snap_scene, snap_profile,
-                    z_bottom=bz0, z_top=bz1, px_m=px_m, theta0=theta0,
-                    row_tile=512, ss=ss,
-                    progress=lambda i, n, b=base, sp=span, k=bi: _set_job(
-                        jid, b + sp * 0.75 * i / n, f"第{k+1}/{n_b}张 渲染 {i}/{n}"))
-                arr = np.asarray(img)
-                del img
-                rgb, a = arr[..., :3], arr[..., 3]
-            flat, a2 = process_pipeline(
-                rgb, a, px_m,
-                strength=max(0.0, min(1.0, req.strength)),
-                clarity=max(0.0, min(1.0, req.clarity)),
-                on_progress=lambda i, n, b=base, sp=span, k=bi: _set_job(
-                    jid, b + sp * (0.78 + 0.18 * i / n), f"第{k+1}/{n_b}张 匀色 {i}/{n}"))
-            del rgb, arr
-            if use_blender:
-                try:
-                    os.remove(raw_png)      # 烘焙中间图很大，后处理后删除
-                except OSError:
-                    pass
-            out = np.dstack([flat, a2])
-            tag = f"{name}_z{bz0:.0f}-{bz1:.0f}m_{px_m*1000:.0f}mm.png"
-            fp = safe_out_path(out_dir, tag)
-            _set_job(jid, base + span * 0.97, f"第{bi+1}/{n_b}张 保存...")
-            Image.fromarray(out, "RGBA").save(fp)
-            del out, flat
-            files.append({"name": tag, "url": f"/api/file/{tag}",
-                          "W": meta["W"], "H": meta["H"]})
-        _set_job(jid, 1.0, "完成", True,
-                 {"files": files, "theta0": theta0, "z": [z0, z1]})
+            band_name = f"z{bz0:.0f}-{bz1:.0f}m"
+            try:
+                if use_blender:
+                    tag0 = f"{name}_{band_name}_bake_raw.png"
+                    raw_png = safe_out_path(out_dir, tag0)
+                    arr, meta = bake_band(
+                        snap_blocks, snap_profile, bz0, bz1, px_m, theta0, raw_png,
+                        log_cb=lambda ln, b=base, sp=span, k=bi: _set_job(
+                            jid, b + sp * 0.6, f"第{k+1}/{n_b}张 烘焙 {ln[-60:]}"))
+                    rgb, a = arr[..., :3], arr[..., 3]
+                else:
+                    img, meta = render_unwrap(
+                        snap_blocks, snap_scene, snap_profile,
+                        z_bottom=bz0, z_top=bz1, px_m=px_m, theta0=theta0,
+                        row_tile=512, ss=ss,
+                        progress=lambda i, n, b=base, sp=span, k=bi: _set_job(
+                            jid, b + sp * 0.75 * i / n, f"第{k+1}/{n_b}张 渲染 {i}/{n}"))
+                    arr = np.asarray(img)
+                    del img
+                    rgb, a = arr[..., :3], arr[..., 3]
+                flat, a2 = process_pipeline(
+                    rgb, a, px_m,
+                    strength=max(0.0, min(1.0, req.strength)),
+                    clarity=max(0.0, min(1.0, req.clarity)),
+                    on_progress=lambda i, n, b=base, sp=span, k=bi: _set_job(
+                        jid, b + sp * (0.78 + 0.18 * i / n), f"第{k+1}/{n_b}张 匀色 {i}/{n}"))
+                del rgb, arr
+                if use_blender:
+                    try:
+                        os.remove(raw_png)      # 烘焙中间图很大，后处理后删除
+                    except OSError:
+                        pass
+                out = np.dstack([flat, a2])
+                tag = f"{name}_{band_name}_{px_m*1000:.0f}mm.png"
+                fp = safe_out_path(out_dir, tag)
+                _set_job(jid, base + span * 0.97, f"第{bi+1}/{n_b}张 保存...")
+                Image.fromarray(out, "RGBA").save(fp)
+                del out, flat
+                files.append({"name": tag, "url": f"/api/file/{tag}",
+                              "W": meta["W"], "H": meta["H"]})
+                # 每完成一张就推送部分结果，前端立即可下载
+                _set_job(jid, partial=list(files))
+            except Exception as e:
+                # 单张失败不拖垮整批：记录后继续下一张
+                traceback.print_exc()
+                failures.append({"band": band_name,
+                                 "error": f"{type(e).__name__}: {e}"})
+                _set_job(jid, stage=f"第{bi+1}/{n_b}张({band_name})失败，继续下一张")
+                continue
+        result = {"files": files, "theta0": theta0, "z": [z0, z1],
+                  "failures": failures}
+        if not files:
+            _set_job(jid, 1.0, "全部失败", True,
+                     error=f"所有分张均失败：{failures[0]['error'] if failures else '未知'}")
+        else:
+            stage = "完成" if not failures else f"完成（{len(failures)} 张失败，可重跑补齐）"
+            _set_job(jid, 1.0, stage, True, result, partial=list(files))
     _run_async(jid, work)
     return {"job_id": jid, "theta0": theta0, "bands": len(bands), "name": name}
 
