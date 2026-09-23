@@ -80,18 +80,41 @@ def bake_band(blocks, profile, z0, z1, px_m, theta0, out_png,
                "--python", script, "--", job_file]
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 text=True, encoding="utf-8", errors="replace")
+        log_lines = []
+        done_seen = False
         try:
             for line in proc.stdout:
                 line = line.rstrip()
-                if line and log_cb:
+                if not line:
+                    continue
+                log_lines.append(line)
+                if "[bake] DONE" in line:
+                    done_seen = True
+                if log_cb:
                     log_cb(line)
             proc.wait(timeout=timeout_s)
         except subprocess.TimeoutExpired:
             proc.kill()
             raise RuntimeError("Blender 烘焙超时")
+        # 完整烘焙日志落盘，便于排查
+        try:
+            from core.runtime_paths import data_dir
+            with open(os.path.join(data_dir(), "bake_last.log"), "w",
+                      encoding="utf-8") as lf:
+                lf.write("\n".join(log_lines))
+        except Exception:
+            pass
+        out_ok = os.path.exists(job["out_png"]) and os.path.getsize(job["out_png"]) > 0
         if proc.returncode != 0:
-            raise RuntimeError(f"Blender 烘焙失败（退出码 {proc.returncode}）")
-        if not os.path.exists(job["out_png"]):
+            if done_seen and out_ok:
+                # 输出已完整写盘后 Blender 在退出清理阶段崩溃：视为成功
+                if log_cb:
+                    log_cb(f"[bake] Blender 退出码 {proc.returncode}，但结果已完整输出，继续")
+            else:
+                tail = " | ".join(log_lines[-8:])
+                raise RuntimeError(
+                    f"Blender 烘焙失败（退出码 {proc.returncode}）。日志末尾：{tail}")
+        if not out_ok:
             raise RuntimeError("Blender 未输出烘焙结果")
     finally:
         try:

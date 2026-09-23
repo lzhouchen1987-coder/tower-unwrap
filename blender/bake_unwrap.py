@@ -168,6 +168,9 @@ def main():
     sc.render.image_settings.color_mode = "RGBA"
     img.save_render(job["out_png"])
     print("[bake] DONE", flush=True)
+    # 显式退出：Blender 4.4 后台模式在大型烘焙后的清理阶段偶发崩溃（退出码非 0），
+    # 此时输出已完整写盘，直接以 0 退出跳过崩溃的清理流程
+    sys.exit(0)
 
 
 main()
